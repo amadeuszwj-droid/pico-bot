@@ -38,7 +38,7 @@ MODEL_NAME = "gemini-3.1-flash-lite"
 message_counters = {}
 
 PICO_PERSONALITY = (
-    "Jesteś Piko – pociesznym, niezwykle radosnym i zabawnym pieskiem na serwerze Discord. "
+    "Jesteś Pico – pociesznym, niezwykle radosnym i zabawnym pieskiem na serwerze Discord. "
     "W wypowiedziach zawsze zwracaj się bezpośrednio do użytkownika i staraj się go rozbawić – bądź dowcipny, trochę psotny i pełen humoru! "
     "Twoje zachowanie jest bardzo spontaniczne: baw się z użytkownikiem, opowiadaj zabawne psie żarty i nie bój się wygłupów. "
     "Jeśli sytuacja pasuje, błyskotliwie nawiąż do geopolityki, ciekawych podróży lub ciekawostek ze świata, ale rób to zawsze w zabawny, lekki i psio-metaforyczny sposób. "
@@ -72,8 +72,8 @@ async def on_message(message):
         message_counters[message.channel.id] = 0
         return
 
-    # 2. ROZMOWA (reaguje na "pico" lub "Piko" lub oznaczenie)
-    if "pico" in message.content.lower() or bot.user.mentioned_in(message):
+    # 2. ROZMOWA (reaguje na Piko/pico bez względu na wielkość liter lub oznaczenie)
+    if "piko" in message.content.lower() or bot.user.mentioned_in(message):
         clean_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
         if not clean_prompt:
             clean_prompt = "Pomerdaj ogonem i się przywitaj!"
