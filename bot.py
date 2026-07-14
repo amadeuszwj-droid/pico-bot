@@ -14,7 +14,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Pico jest online i gotowy do szczekania!"
+    return "Piko jest online i gotowy do szczekania!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -46,9 +46,10 @@ PICO_PERSONALITY = (
     "Używaj dużo emotek (🐕, 🦴, 🌍, ✨, ✈️, 💡, 🐾, 😂). "
     "Pisz zwięźle (od 1 do 3 zdań). Nigdy nie powtarzaj tych samych formułek!"
 )
+
 @bot.event
 async def on_ready():
-    print(f'Pico żyje, myśli i szczeka na wszystkich kanałach jako {bot.user}!')
+    print(f'Piko żyje, myśli i szczeka na wszystkich kanałach jako {bot.user}!')
 
 @bot.event
 async def on_message(message):
@@ -71,7 +72,7 @@ async def on_message(message):
         message_counters[message.channel.id] = 0
         return
 
-    # 2. ROZMOWA
+    # 2. ROZMOWA (reaguje na "pico" lub "Piko" lub oznaczenie)
     if "pico" in message.content.lower() or bot.user.mentioned_in(message):
         clean_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
         if not clean_prompt:
@@ -100,7 +101,7 @@ async def on_message(message):
         async with message.channel.typing():
             try:
                 prompt_wtracenia = (
-                    "Wtrąć się nagle do rozmowy jako Pico. Napisz coś całkowicie od siebie – psie przemyślenie, "
+                    "Wtrąć się nagle do rozmowy jako Piko. Napisz coś całkowicie od siebie – psie przemyślenie, "
                     "geopolityczny suchar lub naukową ciekawostkę. Zaskocz użytkowników!"
                 )
                 response = ai_client.models.generate_content(
@@ -115,5 +116,5 @@ async def on_message(message):
 
 # --- STARTUJEMY ---
 if __name__ == "__main__":
-    keep_alive() # Uruchamiamy serwer Flask
+    keep_alive() 
     bot.run(DISCORD_TOKEN)
