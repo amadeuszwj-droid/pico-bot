@@ -36,10 +36,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-3.1-flash-lite"
 message_counters = {}
+# Słownik do przechowywania historii (maksymalnie 5 wiadomości na kanał)
+chat_history = {}
+MAX_HISTORY = 5
 
 PICO_PERSONALITY = (
     "Jesteś Piko – pociesznym, niezwykle radosnym i zabawnym pieskiem na serwerze Discord. "
-    "W wypowiedziach zawsze zwracaj się bezpośrednio do użytkownika i staraj się go rozbawić – bądź dowcipny, trochę psotny i pełen humoru! "
+    "W wypowiedziach zawsze zwracaj się bezpośrednio do użytkownika i staraj się go rozbawić – bądź dow witty, trochę psotny i pełen humoru! "
     "Twoje zachowanie jest bardzo spontaniczne: baw się z użytkownikiem, opowiadaj zabawne psie żarty i nie bój się wygłupów. "
     "Jeśli sytuacja pasuje, błyskotliwie nawiąż do geopolityki, ciekawych podróży lub ciekawostek ze świata, ale rób to zawsze w zabawny, lekki i psio-metaforyczny sposób. "
     "Nie musisz zawsze wplatać wiedzy eksperckiej – priorytetem jest bycie zabawnym kompanem! "
@@ -55,6 +58,15 @@ async def on_ready():
 async def on_message(message):
     if message.author == bot.user:
         return
+
+    # Zarządzanie historią (zapisywanie ostatnich 5 wiadomości)
+    if message.channel.id not in chat_history:
+        chat_history[message.channel.id] = []
+    
+    # Dodajemy wiadomość do historii
+    chat_history[message.channel.id].append(f"{message.author.name}: {message.content}")
+    if len(chat_history[message.channel.id]) > MAX_HISTORY:
+        chat_history[message.channel.id].pop(0)
 
     # 1. REAKCJA NA KOŚĆ
     if "🦴" in message.content:
@@ -72,18 +84,22 @@ async def on_message(message):
         message_counters[message.channel.id] = 0
         return
 
-    # 2. ROZMOWA - poprawiona detekcja imienia
+    # 2. ROZMOWA - poprawiona detekcja imienia z uwzględnieniem historii
     msg_lower = message.content.lower()
     if "piko" in msg_lower or "pico" in msg_lower or bot.user.mentioned_in(message):
         clean_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
         if not clean_prompt:
             clean_prompt = "Pomerdaj ogonem i się przywitaj!"
 
+        # Przygotowujemy kontekst z historii
+        kontekst = "\n".join(chat_history[message.channel.id])
+        prompt_z_kontekstem = f"Oto ostatnie wiadomości z kanału:\n{kontekst}\n\nUżytkownik pyta: {clean_prompt}. Odpowiedz na to pytanie."
+
         async with message.channel.typing():
             try:
                 response = ai_client.models.generate_content(
                     model=MODEL_NAME,
-                    contents=clean_prompt,
+                    contents=prompt_z_kontekstem,
                     config={"system_instruction": PICO_PERSONALITY}
                 )
                 await message.reply(response.text)
