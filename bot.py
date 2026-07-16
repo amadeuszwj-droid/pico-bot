@@ -37,7 +37,7 @@ ai_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-3.1-flash-lite"
 message_counters = {}
 chat_history = {}
-MAX_HISTORY = 5
+MAX_HISTORY = 3  # Zmieniono pamiętanie ostatnich wiadomości z 5 do 3
 
 PICO_PERSONALITY = (
     "Jesteś Piko – pociesznym, niezwykle radosnym i zabawnym pieskiem na serwerze Discord. "
@@ -69,17 +69,16 @@ async def on_message(message):
 
     # 1. REAKCJA NA KOŚĆ
     if "🦴" in message.content:
-        async with message.channel.typing():
-            try:
-                response = ai_client.models.generate_content(
-                    model=MODEL_NAME,
-                    contents="Właśnie dostałeś pyszną kość! Zareaguj radośnie.",
-                    config={"system_instruction": PICO_PERSONALITY}
-                )
-                await message.reply(response.text)
-            except Exception as e:
-                print(f"Błąd smaczka: {e}")
-                await message.reply("*Chaps!* Hau, dziękuję za kość! 🦴")
+        try:
+            response = ai_client.models.generate_content(
+                model=MODEL_NAME,
+                contents="Właśnie dostałeś pyszną kość! Zareaguj radośnie.",
+                config={"system_instruction": PICO_PERSONALITY}
+            )
+            await message.reply(response.text)
+        except Exception as e:
+            print(f"Błąd smaczka: {e}")
+            await message.reply("*Chaps!* Hau, dziękuję za kość! 🦴")
         message_counters[message.channel.id] = 0
         return
 
@@ -97,17 +96,16 @@ async def on_message(message):
             f"BARDZO WAŻNE: Odnieś się w swojej odpowiedzi do tego, co wydarzyło się w ostatnich wiadomościach powyżej."
         )
 
-        async with message.channel.typing():
-            try:
-                response = ai_client.models.generate_content(
-                    model=MODEL_NAME,
-                    contents=prompt_z_kontekstem,
-                    config={"system_instruction": PICO_PERSONALITY}
-                )
-                await message.reply(response.text)
-            except Exception as e:
-                print(f"Błąd rozmowy: {e}")
-                await message.reply("*Ciche skomlenie* Coś mi przerwało myśli... Hau? 🐕")
+        try:
+            response = ai_client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt_z_kontekstem,
+                config={"system_instruction": PICO_PERSONALITY}
+            )
+            await message.reply(response.text)
+        except Exception as e:
+            print(f"Błąd rozmowy: {e}")
+            await message.reply("*Ciche skomlenie* Coś mi przerwało myśli... Hau? 🐕")
         message_counters[message.channel.id] = 0
         return
 
@@ -117,16 +115,15 @@ async def on_message(message):
     message_counters[message.channel.id] += 1
     
     if message_counters[message.channel.id] >= random.randint(12, 20):
-        async with message.channel.typing():
-            try:
-                response = ai_client.models.generate_content(
-                    model=MODEL_NAME,
-                    contents="Wtrąć się nagle do rozmowy jako Piko – opowiedz psie przemyślenie lub żart.",
-                    config={"system_instruction": PICO_PERSONALITY}
-                )
-                await message.channel.send(response.text)
-            except Exception as e:
-                print(f"Błąd losowego wtrącenia: {e}")
+        try:
+            response = ai_client.models.generate_content(
+                model=MODEL_NAME,
+                contents="Wtrąć się nagle do rozmowy jako Piko – opowiedz psie przemyślenie lub żart.",
+                config={"system_instruction": PICO_PERSONALITY}
+            )
+            await message.channel.send(response.text)
+        except Exception as e:
+            print(f"Błąd losowego wtrącenia: {e}")
         message_counters[message.channel.id] = 0
 
 if __name__ == "__main__":
