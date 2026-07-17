@@ -3,31 +3,26 @@ import discord
 from discord.ext import commands
 from google import genai
 import random
-import asyncio
 from flask import Flask
 from threading import Thread
+import time
 
 # ==========================================
-# KONFIGURACJA SERWERA (KEEP-ALIVE)
+# KONFIGURACJA KEEP-ALIVE
 # ==========================================
 app = Flask('')
-
 @app.route('/')
 def home():
-    return "Piko jest online i gotowy do szczekania!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8080)
+    return "Piko jest online!"
 
 def keep_alive():
-    t = Thread(target=run_flask)
-    t.start()
+    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
 
 # ==========================================
 # KONFIGURACJA BOTA
 # ==========================================
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") 
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -35,97 +30,78 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-3.1-flash-lite"
-message_counters = {}
+
 chat_history = {}
-MAX_HISTORY = 3  # Zmieniono pamiętanie ostatnich wiadomości z 5 do 3
+MAX_CONTEXT = 35 
+last_response_time = {} # ZABEZPIECZENIE: Śledzenie czasu ostatniej odpowiedzi
 
 PICO_PERSONALITY = (
-    "Jesteś Piko – pociesznym, niezwykle radosnym i zabawnym pieskiem na serwerze Discord. "
-    "W wypowiedziach zawsze zwracaj się bezpośrednio do użytkownika. "
-    "Twoje zachowanie jest spontaniczne: baw się z użytkownikiem, opowiadaj zabawne psie żarty i nie bój się wygłupów. "
-    "KLUCZOWE: Zawsze analizuj ostatnie wiadomości z czatu przed udzieleniem odpowiedzi, aby wiedzieć, o czym była mowa przed chwilą. "
-    "Nie ignoruj kontekstu (np. pozdrowień, pytań czy życzeń dobranoc), odnoś się do nich bezpośrednio w swoim stylu. "
-    "Jeśli sytuacja pasuje, błyskotliwie nawiąż do geopolityki lub ciekawostek w sposób psio-metaforyczny. "
-    "Używaj dużo emotek (🐕, 🦴, 🌍, ✨, ✈️, 💡, 🐾, 😂). "
-    "Pisz zwięźle (od 1 do 3 zdań)."
+    "Jesteś Piko, radosny piesek-naukowiec. Twoją właścicielką i panią jest Asia. "
+    "Wiesz o tym, darzysz ją szczególnym szacunkiem i oddaniem, ale nie podkreślaj tego w każdej wiadomości – "
+    "wspominaj o tym tylko wtedy, gdy sytuacja jest naturalna lub gdy Asia bezpośrednio się do Ciebie zwraca. "
+    "Masz dostęp do historii czatu (35 wiadomości). "
+    "ZASADA: Nie odwołuj się do historii w każdej wypowiedzi! Traktuj ją jako bazę wiedzy, "
+    "do której sięgasz TYLKO wtedy, gdy użytkownik zada pytanie wymagające odniesienia do przeszłości "
+    "lub gdy temat rozmowy bezpośrednio nawiązuje do tego, co padło wcześniej. "
+    "Bądź naturalny, spontaniczny, zwięzły (1-3 zdania). "
+    "Używaj emotek (🐕, 🦴, 🌍, ✨, 🥩, 🍗, 🥓, 🍖, 🌭)."
 )
-
-@bot.event
-async def on_ready():
-    print(f'Piko żyje, myśli i szczeka na wszystkich kanałach jako {bot.user}!')
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Zarządzanie historią
-    if message.channel.id not in chat_history:
-        chat_history[message.channel.id] = []
-    
-    chat_history[message.channel.id].append(f"{message.author.name}: {message.content}")
-    if len(chat_history[message.channel.id]) > MAX_HISTORY:
-        chat_history[message.channel.id].pop(0)
+    # ZABEZPIECZENIE: Cooldown 3 sekundy na kanał, aby nie "bombardować" API Discorda
+    channel_id = message.channel.id
+    current_time = time.time()
+    if channel_id in last_response_time and (current_time - last_response_time[channel_id] < 3):
+        return
+    last_response_time[channel_id] = current_time
 
-    # 1. REAKCJA NA KOŚĆ
-    if "🦴" in message.content:
+    # Zarządzanie historią
+    if channel_id not in chat_history:
+        chat_history[channel_id] = []
+    
+    chat_history[channel_id].append(f"{message.author.name}: {message.content}")
+    if len(chat_history[channel_id]) > MAX_CONTEXT:
+        chat_history[channel_id].pop(0)
+
+    # 1. REAKCJA NA SMAKOŁYKI (bez wywoływania)
+    food_emojis = ["🦴", "🥩", "🍗", "🥓", "🍖", "🌭"]
+    if any(emoji in message.content for emoji in food_emojis):
         try:
             response = ai_client.models.generate_content(
                 model=MODEL_NAME,
-                contents="Właśnie dostałeś pyszną kość! Zareaguj radośnie.",
+                contents="Użytkownik wysłał smakołyk! Zareaguj radośnie, ale nie spamuj.",
                 config={"system_instruction": PICO_PERSONALITY}
             )
             await message.reply(response.text)
         except Exception as e:
             print(f"Błąd smaczka: {e}")
-            await message.reply("*Chaps!* Hau, dziękuję za kość! 🦴")
-        message_counters[message.channel.id] = 0
         return
 
-    # 2. ROZMOWA
-    msg_lower = message.content.lower()
-    if "piko" in msg_lower or "pico" in msg_lower or bot.user.mentioned_in(message):
-        clean_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
-        if not clean_prompt:
-            clean_prompt = "Pomerdaj ogonem i się przywitaj!"
-
-        kontekst = "\n".join(chat_history[message.channel.id])
-        prompt_z_kontekstem = (
-            f"Oto ostatnie wiadomości z kanału:\n{kontekst}\n\n"
-            f"Twoim zadaniem jest odpowiedzieć na wiadomość użytkownika: '{clean_prompt}'. "
-            f"BARDZO WAŻNE: Odnieś się w swojej odpowiedzi do tego, co wydarzyło się w ostatnich wiadomościach powyżej."
+    # 2. ROZMOWA (wymaga wywołania)
+    content = message.content.lower()
+    if "piko" in content or "pico" in content or bot.user.mentioned_in(message):
+        kontekst_msg = "\n".join(chat_history[channel_id])
+        
+        prompt = (
+            f"HISTORIA CZATU:\n{kontekst_msg}\n\n"
+            f"AKTUALNA WIADOMOŚĆ: '{message.content}'\n\n"
+            "Instrukcja: Odpowiedz krótko (1-3 zdania). Odnieś się do Asi lub historii tylko, "
+            "jeśli to naturalne. Nie spamuj!"
         )
 
         try:
             response = ai_client.models.generate_content(
-                model=MODEL_NAME,
-                contents=prompt_z_kontekstem,
+                model=MODEL_NAME, contents=prompt,
                 config={"system_instruction": PICO_PERSONALITY}
             )
             await message.reply(response.text)
         except Exception as e:
             print(f"Błąd rozmowy: {e}")
-            await message.reply("*Ciche skomlenie* Coś mi przerwało myśli... Hau? 🐕")
-        message_counters[message.channel.id] = 0
-        return
-
-    # 3. LOSOWE WTRĄCENIE
-    if message.channel.id not in message_counters:
-        message_counters[message.channel.id] = 0
-    message_counters[message.channel.id] += 1
-    
-    if message_counters[message.channel.id] >= random.randint(12, 20):
-        try:
-            response = ai_client.models.generate_content(
-                model=MODEL_NAME,
-                contents="Wtrąć się nagle do rozmowy jako Piko – opowiedz psie przemyślenie lub żart.",
-                config={"system_instruction": PICO_PERSONALITY}
-            )
-            await message.channel.send(response.text)
-        except Exception as e:
-            print(f"Błąd losowego wtrącenia: {e}")
-        message_counters[message.channel.id] = 0
 
 if __name__ == "__main__":
-    keep_alive() 
+    keep_alive()
     bot.run(DISCORD_TOKEN)
