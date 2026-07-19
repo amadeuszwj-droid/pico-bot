@@ -52,14 +52,10 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # ZABEZPIECZENIE: Cooldown 3 sekundy na kanał, aby nie "bombardować" API Discorda
     channel_id = message.channel.id
     current_time = time.time()
-    if channel_id in last_response_time and (current_time - last_response_time[channel_id] < 3):
-        return
-    last_response_time[channel_id] = current_time
 
-    # Zarządzanie historią
+    # Zarządzanie historią (zawsze zbieramy wiadomości, aby Piko znał kontekst)
     if channel_id not in chat_history:
         chat_history[channel_id] = []
     
@@ -70,6 +66,11 @@ async def on_message(message):
     # 1. REAKCJA NA SMAKOŁYKI (bez wywoływania)
     food_emojis = ["🦴", "🥩", "🍗", "🥓", "🍖", "🌭"]
     if any(emoji in message.content for emoji in food_emojis):
+        # Sprawdzamy i nakładamy cooldown TYLKO jeśli Piko ma wysłać odpowiedź
+        if channel_id in last_response_time and (current_time - last_response_time[channel_id] < 3):
+            return
+        last_response_time[channel_id] = current_time
+
         try:
             response = ai_client.models.generate_content(
                 model=MODEL_NAME,
@@ -84,6 +85,11 @@ async def on_message(message):
     # 2. ROZMOWA (wymaga wywołania)
     content = message.content.lower()
     if "piko" in content or "pico" in content or bot.user.mentioned_in(message):
+        # Sprawdzamy i nakładamy cooldown TYLKO jeśli Piko ma wysłać odpowiedź
+        if channel_id in last_response_time and (current_time - last_response_time[channel_id] < 3):
+            return
+        last_response_time[channel_id] = current_time
+
         kontekst_msg = "\n".join(chat_history[channel_id])
         
         prompt = (
