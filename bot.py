@@ -3,24 +3,9 @@ import discord
 from discord.ext import commands
 from google import genai
 import random
-from flask import Flask
-from threading import Thread
 import time
 
-# ==========================================
-# KONFIGURACJA KEEP-ALIVE
-# ==========================================
-app = Flask('')
-@app.route('/')
-def home():
-    return "Piko jest online!"
-
-def keep_alive():
-    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
-
-# ==========================================
-# KONFIGURACJA BOTA
-# ==========================================
+# Konfiguracja
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
@@ -109,5 +94,4 @@ async def on_message(message):
             print(f"Błąd rozmowy: {e}")
 
 if __name__ == "__main__":
-    keep_alive()
     bot.run(DISCORD_TOKEN)
